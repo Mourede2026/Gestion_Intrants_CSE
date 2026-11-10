@@ -3,7 +3,8 @@
  * Coller dans Extensions > Apps Script, puis Déployer > Gérer les déploiements > Modifier > Nouvelle version.
  * Alertes par e-mail : exécuter une fois installerAlerteQuotidienne().
  */
-var P = ['id', 'nom', 'unite', 'stock_depart', 'stock_securite', 'peremption_depart'];
+var P = ['id', 'nom', 'unite', 'stock_depart', 'stock_securite', 'peremption_depart', 'catalogue_id'];
+var C = ['id', 'nom', 'forme', 'dosage', 'conditionnement'];
 var M = ['bordereau_id', 'type', 'date', 'ref', 'type_destination', 'partenaire', 'produit_id', 'qte', 'lot', 'peremption', 'utilisateur'];
 var U = ['id', 'nom', 'login', 'mot_de_passe', 'role', 'actif', 'email'];
 
@@ -87,7 +88,7 @@ function lotsOf(p, moves) {
 function getProducts(moves) {
   var t = today();
   return rows('Produits', P).map(function (r) {
-    var p = { id: String(r[0]), name: r[1], unit: r[2], initial: +r[3] || 0, secu: +r[4] || 0, expInit: fd(r[5]) };
+    var p = { id: String(r[0]), name: r[1], unit: r[2], initial: +r[3] || 0, secu: +r[4] || 0, expInit: fd(r[5]), cid: String(r[6] || '') };
     p.lots = lotsOf(p, moves);
     p.stock = 0; p.usable = 0;
     p.lots.forEach(function (l) { p.stock += l.qty; if (!l.exp || l.exp >= t) p.usable += l.qty; });
@@ -96,7 +97,7 @@ function getProducts(moves) {
 }
 function getData(u) {
   var moves = groupMoves();
-  var d = { me: { id: u.id, name: u.name, role: u.role }, products: getProducts(moves), moves: moves.reverse() };
+  var d = { me: { id: u.id, name: u.name, role: u.role }, products: getProducts(moves), catalogue: catalogue(), moves: moves.reverse() };
   if (u.role === 'gestionnaire') d.users = users().map(function (x) { return { id: x.id, name: x.name, login: x.login, role: x.role, actif: x.actif, email: x.email }; });
   return d;
 }
@@ -145,6 +146,56 @@ function deleteMove(id) {
   for (var i = r.length - 1; i >= 1; i--) if (String(r[i][0]) === id) s.deleteRow(i + 1);
 }
 
+/* ---------- Catalogue des intrants ---------- */
+function catalogue() {
+  var s = sh('Catalogue', C), pr = PropertiesService.getScriptProperties();
+  if (s.getLastRow() < 2 && !pr.getProperty('catSeed')) { appendText(s, [Utilities.getUuid(), 'Alcool', 'Solution antiseptique', '70°', '1 Litre']); pr.setProperty('catSeed', '1'); }
+  return rows('Catalogue', C).map(function (r) { return { id: String(r[0]), name: r[1], forme: r[2], dosage: String(r[3]), cond: r[4] }; });
+}
+function appendText(s, row) {
+  var n = s.getLastRow() + 1, g = s.getRange(n, 1, 1, row.length);
+  g.setNumberFormat('@'); g.setValues([row]);
+}
+function catLabel(c) { return c.name + (c.dosage ? ' ' + c.dosage : '') + (c.cond ? ' (' + c.cond + ')' : ''); }
+function addCatalogue(c) {
+  if (!String(c.name || '').trim()) throw new Error("Nom de l'intrant requis.");
+  catalogue();
+  appendText(sh('Catalogue', C), [Utilities.getUuid(), String(c.name).trim(), c.forme || '', c.dosage || '', c.cond || '']);
+}
+function updateCatalogue(c) {
+  var s = sh('Catalogue', C), r = s.getDataRange().getValues();
+  for (var i = 1; i < r.length; i++) if (String(r[i][0]) === c.id) {
+    var g = s.getRange(i + 1, 2, 1, 4); g.setNumberFormat('@'); g.setValues([[c.name || r[i][1], c.forme || '', c.dosage || '', c.cond || '']]);
+  }
+}
+function deleteCatalogue(id) {
+  if (rows('Produits', P).some(function (r) { return String(r[6]) === id; })) throw new Error('Cet intrant est déjà en stock : suppression impossible.');
+  var s = sh('Catalogue', C), r = s.getDataRange().getValues();
+  for (var i = r.length - 1; i >= 1; i--) if (String(r[i][0]) === id) s.deleteRow(i + 1);
+}
+function importCatalogue(text) { // lignes : Nom ; Forme ; Dosage ; Conditionnement
+  var have = {}, s = sh('Catalogue', C), n = 0;
+  catalogue().forEach(function (c) { have[(c.name + '|' + c.dosage + '|' + c.cond).toLowerCase()] = 1; });
+  String(text || '').split(/\r?\n/).forEach(function (line) {
+    var p = line.split(/[;\t]/).map(function (x) { return x.trim(); });
+    if (!p[0] || /^(intrant|nom)$/i.test(p[0])) return;
+    var k = (p[0] + '|' + (p[2] || '') + '|' + (p[3] || '')).toLowerCase();
+    if (have[k]) return; have[k] = 1;
+    appendText(s, [Utilities.getUuid(), p[0], p[1] || '', p[2] || '', p[3] || '']); n++;
+  });
+  if (!n) throw new Error('Aucune ligne importée (format : Nom ; Forme ; Dosage ; Conditionnement).');
+}
+function addFromCatalogue(items) {
+  var cat = catalogue(), have = {}, s = sh('Produits', P), n = 0;
+  rows('Produits', P).forEach(function (r) { have[String(r[6])] = 1; });
+  (items || []).forEach(function (it) {
+    var c = cat.filter(function (x) { return x.id === it.cid; })[0];
+    if (!c || have[c.id]) return;
+    s.appendRow([Utilities.getUuid(), catLabel(c), c.cond, +it.initial || 0, +it.secu || 0, it.expInit || '', c.id]); n++;
+  });
+  if (!n) throw new Error('Aucun intrant sélectionné.');
+}
+
 function doPost(e) {
   try {
     var b = JSON.parse(e.postData.contents), a = b.action;
@@ -156,7 +207,7 @@ function doPost(e) {
     if (a === 'login') return login(b);
     var u = auth(b.token);
     if (a !== 'data') withLock(function () {
-      var mgr = ['addProduct', 'updateProduct', 'deleteProduct', 'deleteMove', 'addUser', 'updateUser'];
+      var mgr = ['addProduct', 'updateProduct', 'deleteProduct', 'deleteMove', 'addUser', 'updateUser', 'addCatalogue', 'updateCatalogue', 'deleteCatalogue', 'importCatalogue', 'addFromCatalogue'];
       if (mgr.indexOf(a) > -1 && u.role !== 'gestionnaire') throw new Error('Réservé au gestionnaire.');
       if (a === 'saveMove') saveMove(b.move, u);
       else if (a === 'addProduct') addProduct(b.product);
@@ -165,6 +216,11 @@ function doPost(e) {
       else if (a === 'deleteMove') deleteMove(b.id);
       else if (a === 'addUser') createUser(b.user, b.user.role === 'gestionnaire' ? 'gestionnaire' : 'utilisateur');
       else if (a === 'updateUser') updateUser(b.user);
+      else if (a === 'addCatalogue') addCatalogue(b.item);
+      else if (a === 'updateCatalogue') updateCatalogue(b.item);
+      else if (a === 'deleteCatalogue') deleteCatalogue(b.id);
+      else if (a === 'importCatalogue') importCatalogue(b.text);
+      else if (a === 'addFromCatalogue') addFromCatalogue(b.items);
       else throw new Error('Action inconnue.');
     });
     return json({ ok: true, data: getData(u) });

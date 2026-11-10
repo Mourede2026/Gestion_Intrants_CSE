@@ -76,6 +76,7 @@ async function login(){const b={action:setup?'setup':'login',login:$('al').value
  const r=await api(b);if(r&&r.token){T=r.token;localStorage.setItem('tk',T);setup=false;say('');refresh()}}
 /* --- calculs --- */
 const isM=()=>S.me.role==='gestionnaire';
+const fm=p=>{const c=(S.catalogue||[]).find(x=>x.id===p.cid);return c&&c.forme?c.forme+' · ':''};
 const prod=id=>S.products.find(p=>p.id===id);
 const outs=(pid,a,z)=>{let t=0;S.moves.forEach(m=>{if(m.type==='out'&&m.date>=a&&m.date<=z)m.lines.forEach(l=>{if(l.pid===pid)t+=l.qty})});return t};
 const cmm=pid=>Math.round(outs(pid,plus(-90),today())/3*10)/10; /* consommation moyenne mensuelle sur 3 mois */
@@ -87,13 +88,13 @@ async function askNotif(){if('Notification' in window){await Notification.reques
 function csv(name,rows){const t=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n');
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+t],{type:'text/csv'}));a.download=name+'-'+today()+'.csv';a.click()}
 /* --- navigation --- */
-function nav(on){const t=[['dash','Tableau de bord'],['stock','Stock'],['in','Entrée'],['out','Sortie'],['hist','Historique'],['need','Besoins']];if(on&&isM())t.push(['prod','Produits'],['usr','Utilisateurs']);
+function nav(on){const t=[['dash','Tableau de bord'],['stock','Stock'],['in','Entrée'],['out','Sortie'],['hist','Historique'],['need','Besoins']];if(on&&isM())t.push(['cat','Catalogue'],['prod','Produits'],['usr','Utilisateurs']);
  $('nav').innerHTML=on?t.map(x=>`<button class="${x[0]===tab?'on':''}" onclick="go('${x[0]}')">${x[1]}${x[0]==='dash'&&alerts().length?'<b>'+alerts().length+'</b>':''}</button>`).join(''):''}
-function go(t){tab=t;say('');render();if(!['in','out','prod','usr'].includes(t))refresh()}
+function go(t){tab=t;say('');render();if(!['in','out','prod','cat','usr'].includes(t))refresh()}
 function render(){$('hd').innerHTML=S?`<span class="mu">${esc(S.me.name)} · ${S.me.role}</span> <button class="x" style="font-size:14px" onclick="logout()">Quitter</button>`:'';
  if(!T){nav(0);$('v').innerHTML=vAuth();return}
  if(!S){nav(0);$('v').innerHTML='<div class="card">Chargement…</div>';return}
- nav(1);const f={dash:vDash,stock:vStock,in:()=>vForm('in'),out:()=>vForm('out'),hist:vHist,need:vNeed,prod:vProd,usr:vUsr};
+ nav(1);const f={dash:vDash,stock:vStock,in:()=>vForm('in'),out:()=>vForm('out'),hist:vHist,need:vNeed,prod:vProd,cat:vCat,usr:vUsr};
  if(!f[tab])tab='dash';$('v').innerHTML=f[tab]();if(tab==='in'||tab==='out')addLine()}
 /* --- tableau de bord --- */
 function vDash(){const A=alerts(),ms=S.moves.filter(m=>m.date.slice(0,7)===month);let ti=0,to=0;const per={};
@@ -113,7 +114,7 @@ function vStock(){if(!S.products.length)return '<div class="card">Aucun produit.
  const l=S.products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),t=today(),lim=plus(90);
  return `<input placeholder="Rechercher un produit…" value="${esc(q)}" oninput="q=this.value;$('sl').innerHTML=sl()" style="margin-bottom:10px"><div id="sl">${sl()}</div><div class="bar"><button class="btn s" onclick="exStock()">Exporter le stock (CSV)</button></div>`}
 function sl(){const t=today(),lim=plus(90);return '<div class="g">'+(S.products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())).map(p=>{const low=p.stock<=0||(p.secu>0&&p.stock<=p.secu);
- return `<details class="card"><summary><div class="it" style="border:0;padding:0"><div>${esc(p.name)}<div class="mu">${esc(p.unit||'')} · sécurité ${p.secu} · CMM ${cmm(p.id)}</div></div><div class="q ${low?'low':''}">${p.stock}</div></div></summary>`+
+ return `<details class="card"><summary><div class="it" style="border:0;padding:0"><div>${esc(p.name)}<div class="mu">${esc(fm(p))}${esc(p.unit||'')} · sécurité ${p.secu} · CMM ${cmm(p.id)}</div></div><div class="q ${low?'low':''}">${p.stock}</div></div></summary>`+
  (p.lots.length?p.lots.map(l=>`<div class="it"><span>Lot ${esc(l.lot)}<div class="mu ${l.exp&&l.exp<t?'low':l.exp&&l.exp<=lim?'':''}">${l.exp?'Péremption '+l.exp+(l.exp<t?' (périmé)':l.exp<=lim?' (bientôt)':''):'Sans date de péremption'}</div></span><b>${l.qty}</b></div>`).join(''):'<div class="mu">Aucun lot en stock.</div>')+'</details>'}).join('')||'Aucun résultat.')+'</div>'}
 const exStock=()=>{const r=[['Produit','Unité','Stock total','Stock utilisable','Stock de sécurité','CMM','Lot','Péremption','Quantité du lot']];S.products.forEach(p=>{const b=[p.name,p.unit,p.stock,p.usable,p.secu,cmm(p.id)];if(!p.lots.length)r.push(b.concat(['','','']));p.lots.forEach(l=>r.push(b.concat([l.lot,l.exp,l.qty])))});csv('stock',r)};
 /* --- besoins --- */
@@ -121,7 +122,7 @@ function need(p){return Math.max(0,Math.ceil(cmm(p.id)*cover+p.secu-p.stock))}
 function vNeed(){const l=S.products.slice().sort((a,b)=>need(b)-need(a));
  return `<div class="card"><label style="margin:0 0 3px">Couverture souhaitée</label><select onchange="cover=+this.value;render()">${[1,2,3,4,6].map(n=>`<option ${n===cover?'selected':''} value="${n}">${n} mois</option>`).join('')}</select><div class="mu" style="margin-top:6px">Besoin = CMM × couverture + stock de sécurité − stock actuel. La CMM est la moyenne mensuelle des sorties des 3 derniers mois.</div></div>`+
  '<div class="card">'+(l.map(p=>`<div class="it"><div>${esc(p.name)}<div class="mu">Stock ${p.stock} · CMM ${cmm(p.id)} · sécurité ${p.secu}</div></div><div class="q ${need(p)?'low':''}">${need(p)?'+'+need(p):'OK'}</div></div>`).join('')||'Aucun produit.')+'</div>'+
- '<div class="bar"><button class="btn s" onclick="exNeed()">Exporter les besoins (CSV)</button></div>'}
+ '<div class="bar"><button class="btn s" onclick="fiche()">Fiche zone sanitaire (imprimer / PDF)</button><button class="btn s" onclick="exFiche()">Fiche (CSV)</button></div><div class="bar"><button class="btn s" onclick="exNeed()">Exporter les besoins détaillés (CSV)</button></div>'}
 const exNeed=()=>csv('besoins',[['Produit','Stock','CMM','Stock de sécurité','Couverture (mois)','Besoin']].concat(S.products.map(p=>[p.name,p.stock,cmm(p.id),p.secu,cover,need(p)])));
 /* --- bordereaux --- */
 function vForm(t){const o=t==='out';if(!S.products.length)return '<div class="card">Ajoutez d’abord des produits.</div>';
@@ -142,10 +143,34 @@ function exHist(){const r=[['Date','Type','N° bordereau','Destination','Partena
  S.moves.forEach(m=>m.lines.forEach(l=>{const p=prod(l.pid);r.push([m.date,m.type==='in'?'Entrée':'Sortie',m.ref,m.dest,m.party,m.user,p?p.name:'?',l.lot,l.exp,l.qty])}));csv('mouvements',r)}
 function delMove(id){if(confirm('Supprimer ce bordereau ? Le stock sera recalculé.'))act({action:'deleteMove',id})}
 /* --- produits (gestionnaire) --- */
-const vProd=()=>`<div class="card"><b>Nouveau produit</b><div class="g"><div><label>Nom</label><input id="pn"></div><div><label>Unité (boîte, flacon…)</label><input id="pu"></div><div><label>Stock de départ</label><input id="pi" type="number" min="0" value="0"></div><div><label>Stock de sécurité</label><input id="ps" type="number" min="0" value="0"></div><div><label>Péremption du stock de départ</label><input id="pe" type="date"></div></div><button class="btn" onclick="addProd()">Ajouter le produit</button></div>`+
- S.products.map(p=>`<div class="card"><div class="row"><input id="n${p.id}" value="${esc(p.name)}" class="fl"><button class="x" onclick="delProd('${p.id}')">×</button></div><div class="g"><div><label>Unité</label><input id="u${p.id}" value="${esc(p.unit||'')}"></div><div><label>Stock de départ</label><input id="i${p.id}" type="number" min="0" value="${p.initial}"></div><div><label>Stock de sécurité</label><input id="s${p.id}" type="number" min="0" value="${p.secu}"></div><div><label>Péremption du stock de départ</label><input id="e${p.id}" type="date" value="${p.expInit}"></div></div><button class="btn s" onclick="updProd('${p.id}')">Enregistrer les modifications</button></div>`).join('');
-function addProd(){const n=$('pn').value.trim();if(!n)return say('Entrez le nom du produit.');
- act({action:'addProduct',product:{name:n,unit:$('pu').value.trim(),initial:+$('pi').value||0,secu:+$('ps').value||0,expInit:$('pe').value}},'Produit ajouté.')}
+const catLab=c=>c.name+(c.dosage?' '+c.dosage:'')+(c.cond?' ('+c.cond+')':'');
+function vProd(){const have=new Set(S.products.map(p=>p.cid)),free=(S.catalogue||[]).filter(c=>!have.has(c.id));
+ return `<div class="card"><b>Mettre des intrants en stock</b><div class="mu">Cochez les intrants du catalogue que vous avez en stock, puis renseignez la quantité, la péremption et le stock de sécurité.</div>`+
+ (free.length?`<input placeholder="Rechercher…" oninput="const v=this.value.toLowerCase();document.querySelectorAll('.cr').forEach(e=>e.style.display=e.dataset.n.includes(v)?'':'none')" style="margin:8px 0">`+
+ free.map(c=>`<div class="cr card" data-n="${esc(catLab(c).toLowerCase())}" style="padding:8px"><label style="display:flex;gap:8px;align-items:center;margin:0;color:var(--tx);font-size:16px"><input type="checkbox" id="k${c.id}" style="width:20px"> <span>${esc(catLab(c))}<div class="mu">${esc(c.forme||'')}</div></span></label><div class="row" style="margin-top:6px"><input id="q${c.id}" type="number" min="0" inputmode="numeric" placeholder="Stock dispo." class="fl"><input id="z${c.id}" type="number" min="0" inputmode="numeric" placeholder="Sécurité" class="fl"><input id="x${c.id}" type="date" title="Péremption" class="fl"></div></div>`).join('')+`<button class="btn" onclick="addFromCat()">Ajouter les intrants cochés au stock</button>`
+ :'<div class="mu" style="margin-top:8px">Tous les intrants du catalogue sont déjà en stock. Ajoutez-en de nouveaux dans l’onglet Catalogue.</div>')+'</div>'+
+ '<b style="margin:6px 4px;display:block">Intrants en stock</b>'+
+ S.products.map(p=>`<div class="card"><div class="row"><input id="n${p.id}" value="${esc(p.name)}" class="fl"><button class="x" onclick="delProd('${p.id}')">×</button></div><div class="g"><div><label>Unité</label><input id="u${p.id}" value="${esc(p.unit||'')}"></div><div><label>Stock de départ</label><input id="i${p.id}" type="number" min="0" value="${p.initial}"></div><div><label>Stock de sécurité</label><input id="s${p.id}" type="number" min="0" value="${p.secu}"></div><div><label>Péremption du stock de départ</label><input id="e${p.id}" type="date" value="${p.expInit}"></div></div><button class="btn s" onclick="updProd('${p.id}')">Enregistrer les modifications</button></div>`).join('')}
+function addFromCat(){const it=[];(S.catalogue||[]).forEach(c=>{const k=$('k'+c.id);if(k&&k.checked)it.push({cid:c.id,initial:+$('q'+c.id).value||0,secu:+$('z'+c.id).value||0,expInit:$('x'+c.id).value})});
+ if(!it.length)return say('Cochez au moins un intrant.');act({action:'addFromCatalogue',items:it},it.length+' intrant(s) ajouté(s) au stock.')}
+/* --- catalogue (gestionnaire) --- */
+const FORMES=['Comprimé','Gélule','Solution buvable','Sirop','Suspension buvable','Sachet (SRO)','Injectable','Perfusion','Pommade','Crème','Collyre','Suppositoire','Solution antiseptique','Consommable','Dispositif médical','Autre'];
+function vCat(){const C=S.catalogue||[],names=[...new Set(C.map(c=>c.name))].sort();
+ return `<div class="card"><b>Nouvel intrant</b><div class="mu">Pour une variante (autre dosage ou forme), gardez le même nom et changez le dosage.</div><div class="g"><div><label>Nom de l’intrant</label><input id="cn" list="dn"><datalist id="dn">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist></div><div><label>Forme / type</label><input id="cf" list="df" placeholder="Solution buvable, comprimé…"><datalist id="df">${FORMES.map(f=>`<option value="${f}">`).join('')}</datalist></div><div><label>Dosage / grammage</label><input id="cd" placeholder="500 mg, 70°, 125 mg/5 ml…"></div><div><label>Conditionnement</label><input id="cc" placeholder="Boîte de 100, flacon 1 Litre…"></div></div><button class="btn" onclick="addCat()">Ajouter au catalogue</button></div>`+
+ `<details class="card"><summary><b>Importer une liste</b> <span class="mu">(coller plusieurs intrants)</span></summary><div class="mu" style="margin:6px 0">Une ligne par intrant : Nom ; Forme ; Dosage ; Conditionnement</div><textarea id="ci" rows="6" style="width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font:inherit" placeholder="Paracétamol ; Comprimé ; 500 mg ; Boîte de 1000&#10;Amoxicilline ; Sirop ; 125 mg/5 ml ; Flacon"></textarea><button class="btn" onclick="impCat()">Importer</button></details>`+
+ names.map(n=>`<div class="card"><div class="it" style="border:0;padding:0"><b>${esc(n)}</b><button class="btn s" style="width:auto;margin:0;padding:6px 10px" onclick="varCat('${esc(n).replace(/'/g,"\\'")}')">+ variante</button></div>`+C.filter(c=>c.name===n).map(c=>`<div class="it"><div>${esc(catLab(c))}<div class="mu">${esc(c.forme||'Forme non précisée')}${S.products.some(p=>p.cid===c.id)?' · en stock':''}</div></div><button class="x" onclick="delCat('${c.id}')">×</button></div>`).join('')+'</div>').join('')}
+const addCat=()=>{if(!$('cn').value.trim())return say('Entrez le nom de l’intrant.');act({action:'addCatalogue',item:{name:$('cn').value,forme:$('cf').value,dosage:$('cd').value,cond:$('cc').value}},'Intrant ajouté au catalogue.')};
+const impCat=()=>act({action:'importCatalogue',text:$('ci').value},'Liste importée.');
+const delCat=id=>{if(confirm('Supprimer cet intrant du catalogue ?'))act({action:'deleteCatalogue',id})};
+function varCat(n){$('cn').value=n;$('cd').value='';$('cf').focus();window.scrollTo(0,0)}
+/* --- fiche zone sanitaire --- */
+const fr=d=>d?d.split('-').reverse().join('/'):'';
+const early=p=>{const l=p.lots.filter(x=>x.exp&&x.qty>0);return l.length?l[0].exp:''};
+const exFiche=()=>csv('intrants-zs',[['N°','Intrant','Stock dispo.','Péremption','Besoin exprimé']].concat(S.products.map((p,i)=>[i+1,p.name,p.stock,fr(early(p)),need(p)||''])));
+function fiche(){const z=prompt('Zone sanitaire :',localStorage.getItem('zs')||'');if(z===null)return;localStorage.setItem('zs',z);
+ const r=S.products.map((p,i)=>`<tr><td>${i+1}</td><td>${esc(p.name)}</td><td>${p.stock}</td><td>${fr(early(p))}</td><td>${need(p)||''}</td></tr>`).join('');
+ const w=window.open('','_blank');if(!w)return say('Autorisez les fenêtres pop-up pour imprimer.');
+ w.document.write(`<!DOCTYPE html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Intrants ${esc(z)}</title><style>body{font:14px system-ui,sans-serif;margin:24px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #888;padding:6px;text-align:left}th{background:#eee}</style><h2>Intrants - Zone sanitaire : ${esc(z)}</h2><p>Date : ${fr(today())} | Saisi par : ${esc(S.me.name)}</p><table><tr><th>N°</th><th>Intrant</th><th>Stock dispo.</th><th>Péremption</th><th>Besoin exprimé</th></tr>${r}</table><script>setTimeout(function(){print()},400)<\/script>`);w.document.close()}
 const updProd=id=>act({action:'updateProduct',product:{id,name:$('n'+id).value.trim(),unit:$('u'+id).value.trim(),initial:+$('i'+id).value||0,secu:+$('s'+id).value||0,expInit:$('e'+id).value}},'Produit modifié.');
 const delProd=id=>{if(confirm('Supprimer ce produit ?'))act({action:'deleteProduct',id})};
 /* --- utilisateurs (gestionnaire) --- */

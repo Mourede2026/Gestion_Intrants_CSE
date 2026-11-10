@@ -10,6 +10,12 @@ Application web installable (PWA) de gestion des stocks de produits de santé, a
 - Consommation moyenne mensuelle (3 derniers mois) et calcul des besoins selon la couverture choisie.
 - Bordereaux d'entrée et de sortie à plusieurs produits, historique avec l'utilisateur, exports CSV.
 
+## Catalogue des intrants
+- Onglet **Catalogue** (gestionnaire) : liste des intrants avec forme (comprimé, solution buvable, injectable…), dosage / grammage et conditionnement. Pour une variante, utilisez « + variante » : même nom, autre dosage.
+- Le catalogue contient au départ « Alcool 70° (1 Litre) ». Une liste peut être collée d'un coup : `Nom ; Forme ; Dosage ; Conditionnement`.
+- Onglet **Produits** : cochez les intrants du catalogue présents en stock, puis renseignez stock disponible, péremption et stock de sécurité.
+- Onglet **Besoins** : fiche de zone sanitaire (N°, Intrant, Stock dispo., Péremption, Besoin exprimé) à imprimer, enregistrer en PDF ou exporter en CSV.
+
 ## Fichiers
 - `index.html` : l'application. L'URL de l'API est en haut du script (`API`).
 - `Code.gs` : backend Apps Script, à coller dans le Google Sheet.
