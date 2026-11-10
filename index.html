@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16a34a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Gestion des intrants</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1b2430;--mu:#6b7686;--bd:#dde2e9;--ac:#16a34a;--ok:#15803d;--ko:#b91c1c;--wa:#b45309;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#12161c;--card:#1b222b;--tx:#e8edf3;--mu:#97a3b3;--bd:#2d3744;--ac:#22c55e;--ok:#4ade80;--ko:#f87171;--wa:#fbbf24;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) 40px env(safe-area-inset-left,0)}
+.w{max-width:980px;margin:0 auto}
+header{padding:14px 16px 4px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}h1{font-size:20px;margin:0}
+#ld{font-size:13px;color:var(--mu)}
+nav{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;position:sticky;top:env(safe-area-inset-top,0);background:var(--bg);z-index:5}
+nav button{flex:none;border:1px solid var(--bd);background:var(--card);color:var(--tx);padding:8px 14px;border-radius:20px;font-size:14px}
+nav button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+nav b{background:var(--ko);color:#fff;border-radius:10px;padding:0 6px;font-size:12px;margin-left:4px}
+main{padding:8px 12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:10px}
+.g{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:0 12px}
+.k{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px}.k div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px}.k b{display:block;font-size:24px}
+label{display:block;font-size:13px;color:var(--mu);margin:8px 0 3px}
+input,select{width:100%;padding:10px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--tx);font-size:16px}
+.row{display:flex;gap:8px;align-items:center;margin-bottom:6px}.row select{flex:1}.row input{width:100px}.row input.lt,.row input.ex,.row input.fl{width:auto;flex:1}
+.btn{border:0;background:var(--ac);color:#fff;padding:12px;border-radius:10px;font-size:16px;width:100%;margin-top:10px}
+.btn:disabled{opacity:.6}.btn.s{background:transparent;color:var(--ac);border:1px dashed var(--ac);margin-top:4px}
+.x{border:0;background:none;color:var(--ko);font-size:22px;padding:4px 8px}
+.it{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--bd)}.it:last-child{border:0}
+.q{font-weight:700;font-variant-numeric:tabular-nums}.low{color:var(--ko)}.mu{color:var(--mu);font-size:13px}
+.tag{font-size:12px;padding:2px 8px;border-radius:10px;background:var(--bd)}.in{color:var(--ok)}.out{color:var(--ko)}
+.al{border-left:5px solid var(--wa);margin-bottom:6px}.al.ko{border-color:var(--ko)}
+.ch{display:flex;gap:8px;margin-top:8px}.cc{flex:1;text-align:center;font-size:12px;color:var(--mu)}
+.bb{height:100px;display:flex;gap:2px;align-items:flex-end;justify-content:center}.bb i{width:40%;min-height:2px;border-radius:3px 3px 0 0}.bb .a{background:var(--ok)}.bb .b{background:var(--ko)}
+.b2{height:6px;background:var(--bd);border-radius:3px}.b2 i{display:block;height:100%;background:var(--ac);border-radius:3px}
+#m{margin:0 12px;border-radius:8px;background:var(--bd);padding:0 10px;height:0;overflow:hidden}#m.on{padding:10px;height:auto;margin-bottom:6px}
+summary{cursor:pointer;list-style:none}summary::-webkit-details-marker{display:none}
+.bar{display:flex;gap:8px}.bar .btn{margin-top:6px}
+</style>
+</head>
+<body>
+<div class="w">
+<header><h1>Gestion des intrants</h1><span id="ld"></span><span id="hd"></span></header>
+<nav id="nav"></nav>
+<div id="m"></div>
+<main id="v"></main>
+</div>
+<script>
+/* ====== CONFIGURATION : URL du déploiement Apps Script ====== */
+const API='https://script.google.com/macros/s/AKfycbwbNeJS1WCUJW98jKT-hsiNv243mhUCp3jA8BoQz2TsfYiBgAxKtyS9fdo7b-HFGfst/exec';
+/* ============================================================ */
+let T=localStorage.getItem('tk')||'',S=null,tab='dash',setup=false,cover=3,q='';
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const today=()=>iso(new Date()),plus=n=>{const d=new Date();d.setDate(d.getDate()+n);return iso(d)};
+let month=today().slice(0,7);
+const say=t=>{const m=$('m');m.textContent=t||'';m.className=t?'on':''};
+const busy=b=>{$('ld').textContent=b?'Synchronisation…':''};
+async function api(b){b.token=T;busy(1);try{
+ const r=await(await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)})).json();
+ if(!r.ok){if(r.error==='SESSION'){logout('Session expirée : reconnectez-vous.');return null}throw new Error(r.error)}return r
+ }catch(e){say(navigator.onLine?'Erreur : '+e.message:'Hors ligne : une connexion est nécessaire.');const s=$('sv');if(s)s.disabled=false;return null}finally{busy(0)}}
+async function act(b,ok){const r=await api(b);if(r&&r.data){S=r.data;if(ok)say(ok);render();return true}return false}
+async function refresh(){const r=await api({action:'data'});if(r){S=r.data;render();notify()}}
+function logout(m){T='';S=null;localStorage.removeItem('tk');render();say(m||'')}
+/* --- connexion --- */
+const vAuth=()=>`<div class="card"><b>${setup?'Créer le compte gestionnaire':'Connexion'}</b>${setup?'<label>Nom complet</label><input id="an">':''}<label>Identifiant</label><input id="al" autocapitalize="none" autocomplete="username"><label>Mot de passe</label><input id="ap" type="password" autocomplete="current-password">${setup?'<label>E-mail (alertes quotidiennes)</label><input id="ae" type="email">':''}<button class="btn" onclick="login()">${setup?'Créer et entrer':'Se connecter'}</button></div>`;
+async function login(){const b={action:setup?'setup':'login',login:$('al').value,password:$('ap').value};if(setup){b.name=$('an').value;b.email=$('ae').value}
+ const r=await api(b);if(r&&r.token){T=r.token;localStorage.setItem('tk',T);setup=false;say('');refresh()}}
+/* --- calculs --- */
+const isM=()=>S.me.role==='gestionnaire';
+const prod=id=>S.products.find(p=>p.id===id);
+const outs=(pid,a,z)=>{let t=0;S.moves.forEach(m=>{if(m.type==='out'&&m.date>=a&&m.date<=z)m.lines.forEach(l=>{if(l.pid===pid)t+=l.qty})});return t};
+const cmm=pid=>Math.round(outs(pid,plus(-90),today())/3*10)/10; /* consommation moyenne mensuelle sur 3 mois */
+function alerts(){const A=[],t=today(),lim=plus(90);S.products.forEach(p=>{
+ if(p.stock<=0)A.push(['ko','Rupture',p.name]);else if(p.secu>0&&p.stock<=p.secu)A.push(['wa','Sous le stock de sécurité',`${p.name} : ${p.stock} (seuil ${p.secu})`]);
+ p.lots.forEach(l=>{if(!l.exp||l.qty<=0)return;if(l.exp<t)A.push(['ko','Périmé',`${p.name}, lot ${l.lot} : ${l.qty}`]);else if(l.exp<=lim)A.push(['wa','Péremption dans moins de 3 mois',`${p.name}, lot ${l.lot}, ${l.exp} : ${l.qty}`])})});return A}
+function notify(){const A=alerts();if(A.length&&'Notification' in window&&Notification.permission==='granted'&&navigator.serviceWorker)navigator.serviceWorker.ready.then(r=>r.showNotification('Gestion des intrants',{body:A.length+' alerte(s) de stock',icon:'icons/icon-192.png'}))}
+async function askNotif(){if('Notification' in window){await Notification.requestPermission();notify();render()}}
+function csv(name,rows){const t=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+t],{type:'text/csv'}));a.download=name+'-'+today()+'.csv';a.click()}
+/* --- navigation --- */
+function nav(on){const t=[['dash','Tableau de bord'],['stock','Stock'],['in','Entrée'],['out','Sortie'],['hist','Historique'],['need','Besoins']];if(on&&isM())t.push(['prod','Produits'],['usr','Utilisateurs']);
+ $('nav').innerHTML=on?t.map(x=>`<button class="${x[0]===tab?'on':''}" onclick="go('${x[0]}')">${x[1]}${x[0]==='dash'&&alerts().length?'<b>'+alerts().length+'</b>':''}</button>`).join(''):''}
+function go(t){tab=t;say('');render();if(!['in','out','prod','usr'].includes(t))refresh()}
+function render(){$('hd').innerHTML=S?`<span class="mu">${esc(S.me.name)} · ${S.me.role}</span> <button class="x" style="font-size:14px" onclick="logout()">Quitter</button>`:'';
+ if(!T){nav(0);$('v').innerHTML=vAuth();return}
+ if(!S){nav(0);$('v').innerHTML='<div class="card">Chargement…</div>';return}
+ nav(1);const f={dash:vDash,stock:vStock,in:()=>vForm('in'),out:()=>vForm('out'),hist:vHist,need:vNeed,prod:vProd,usr:vUsr};
+ if(!f[tab])tab='dash';$('v').innerHTML=f[tab]();if(tab==='in'||tab==='out')addLine()}
+/* --- tableau de bord --- */
+function vDash(){const A=alerts(),ms=S.moves.filter(m=>m.date.slice(0,7)===month);let ti=0,to=0;const per={};
+ ms.forEach(m=>m.lines.forEach(l=>{if(m.type==='in')ti+=l.qty;else{to+=l.qty;per[l.pid]=(per[l.pid]||0)+l.qty}}));
+ const top=Object.entries(per).sort((a,b)=>b[1]-a[1]).slice(0,10),mx=top.length?top[0][1]:1;
+ const mo=[];for(let i=5;i>=0;i--){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);mo.push(iso(d).slice(0,7))}
+ const ag=mo.map(k=>{let a=0,b=0;S.moves.forEach(m=>{if(m.date.slice(0,7)===k)m.lines.forEach(l=>{m.type==='in'?a+=l.qty:b+=l.qty})});return[k,a,b]});const mm=Math.max(1,...ag.map(x=>Math.max(x[1],x[2])));
+ const nb=A.filter(a=>a[1]!=='Rupture'&&a[1]!=='Sous le stock de sécurité').length;
+ return `<div class="k"><div><b>${S.products.length}</b>Produits</div><div><b class="${A.length?'low':''}">${A.length}</b>Alertes</div><div><b>${nb}</b>Péremptions</div><div><b>${S.moves.length}</b>Bordereaux</div></div>`+
+ (A.length?A.map(a=>`<div class="card al ${a[0]}"><b>${a[1]}</b><div class="mu">${esc(a[2])}</div></div>`).join(''):'<div class="card">Aucune alerte : tous les stocks sont au-dessus du seuil de sécurité.</div>')+
+ (('Notification' in window&&Notification.permission==='default')?'<button class="btn s" onclick="askNotif()">Activer les notifications sur cet appareil</button>':'')+
+ `<div class="card" style="margin-top:10px"><b>Mouvements du mois</b><input type="month" value="${month}" onchange="month=this.value||month;render()" style="margin-top:6px"><div class="k" style="margin:8px 0 0"><div><b class="in">${ti}</b>Entrées</div><div><b class="out">${to}</b>Sorties</div></div></div>`+
+ `<div class="card"><b>Produits les plus utilisés</b>${top.length?top.map(([id,n])=>{const p=prod(id);return `<div style="margin:8px 0"><div class="it" style="border:0;padding:0"><span>${esc(p?p.name:'?')}</span><b>${n}</b></div><div class="b2"><i style="width:${n/mx*100}%"></i></div></div>`}).join(''):'<div class="mu">Aucune sortie ce mois-ci.</div>'}</div>`+
+ `<div class="card"><b>6 derniers mois</b> <span class="mu"><span class="in">■</span> entrées <span class="out">■</span> sorties</span><div class="ch">${ag.map(x=>`<div class="cc"><div class="bb"><i class="a" style="height:${x[1]/mm*100}%"></i><i class="b" style="height:${x[2]/mm*100}%"></i></div>${x[0].slice(5)}/${x[0].slice(2,4)}</div>`).join('')}</div></div>`}
+/* --- stock --- */
+function vStock(){if(!S.products.length)return '<div class="card">Aucun produit.'+(isM()?' Allez dans <b>Produits</b> pour en ajouter.':'')+'</div>';
+ const l=S.products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())),t=today(),lim=plus(90);
+ return `<input placeholder="Rechercher un produit…" value="${esc(q)}" oninput="q=this.value;$('sl').innerHTML=sl()" style="margin-bottom:10px"><div id="sl">${sl()}</div><div class="bar"><button class="btn s" onclick="exStock()">Exporter le stock (CSV)</button></div>`}
+function sl(){const t=today(),lim=plus(90);return '<div class="g">'+(S.products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())).map(p=>{const low=p.stock<=0||(p.secu>0&&p.stock<=p.secu);
+ return `<details class="card"><summary><div class="it" style="border:0;padding:0"><div>${esc(p.name)}<div class="mu">${esc(p.unit||'')} · sécurité ${p.secu} · CMM ${cmm(p.id)}</div></div><div class="q ${low?'low':''}">${p.stock}</div></div></summary>`+
+ (p.lots.length?p.lots.map(l=>`<div class="it"><span>Lot ${esc(l.lot)}<div class="mu ${l.exp&&l.exp<t?'low':l.exp&&l.exp<=lim?'':''}">${l.exp?'Péremption '+l.exp+(l.exp<t?' (périmé)':l.exp<=lim?' (bientôt)':''):'Sans date de péremption'}</div></span><b>${l.qty}</b></div>`).join(''):'<div class="mu">Aucun lot en stock.</div>')+'</details>'}).join('')||'Aucun résultat.')+'</div>'}
+const exStock=()=>{const r=[['Produit','Unité','Stock total','Stock utilisable','Stock de sécurité','CMM','Lot','Péremption','Quantité du lot']];S.products.forEach(p=>{const b=[p.name,p.unit,p.stock,p.usable,p.secu,cmm(p.id)];if(!p.lots.length)r.push(b.concat(['','','']));p.lots.forEach(l=>r.push(b.concat([l.lot,l.exp,l.qty])))});csv('stock',r)};
+/* --- besoins --- */
+function need(p){return Math.max(0,Math.ceil(cmm(p.id)*cover+p.secu-p.stock))}
+function vNeed(){const l=S.products.slice().sort((a,b)=>need(b)-need(a));
+ return `<div class="card"><label style="margin:0 0 3px">Couverture souhaitée</label><select onchange="cover=+this.value;render()">${[1,2,3,4,6].map(n=>`<option ${n===cover?'selected':''} value="${n}">${n} mois</option>`).join('')}</select><div class="mu" style="margin-top:6px">Besoin = CMM × couverture + stock de sécurité − stock actuel. La CMM est la moyenne mensuelle des sorties des 3 derniers mois.</div></div>`+
+ '<div class="card">'+(l.map(p=>`<div class="it"><div>${esc(p.name)}<div class="mu">Stock ${p.stock} · CMM ${cmm(p.id)} · sécurité ${p.secu}</div></div><div class="q ${need(p)?'low':''}">${need(p)?'+'+need(p):'OK'}</div></div>`).join('')||'Aucun produit.')+'</div>'+
+ '<div class="bar"><button class="btn s" onclick="exNeed()">Exporter les besoins (CSV)</button></div>'}
+const exNeed=()=>csv('besoins',[['Produit','Stock','CMM','Stock de sécurité','Couverture (mois)','Besoin']].concat(S.products.map(p=>[p.name,p.stock,cmm(p.id),p.secu,cover,need(p)])));
+/* --- bordereaux --- */
+function vForm(t){const o=t==='out';if(!S.products.length)return '<div class="card">Ajoutez d’abord des produits.</div>';
+ return `<div class="card"><b>${o?'Bordereau de sortie':'Bordereau d’approvisionnement'}</b><div class="g"><div><label>N° du bordereau</label><input id="ref"></div><div><label>Date</label><input id="dt" type="date" value="${today()}"></div>`+
+ (o?'<div><label>Type de destination</label><select id="dty"><option>Centre de santé</option><option>Hôpital de zone</option><option>Épidémie (gestion de cas)</option><option>Autre</option></select></div><div><label>Nom de la destination</label><input id="par"></div>':'<div><label>Fournisseur / provenance</label><input id="par"></div>')+
+ `</div><label style="margin-top:14px">Produits${o?' (les lots qui expirent en premier sont sortis en premier)':' : quantité, lot et date de péremption'}</label><div id="lines"></div><button class="btn s" onclick="addLine()">+ Ajouter une ligne</button><button class="btn" id="sv" onclick="saveMove('${t}')">Enregistrer le bordereau</button></div>`}
+function addLine(){const o=tab==='out',d=document.createElement('div');d.className='ln card';d.style.padding='8px';
+ d.innerHTML=`<div class="row"><select>${S.products.map(p=>`<option value="${p.id}">${esc(p.name)}${o?` (dispo ${p.usable})`:''}</option>`).join('')}</select><input type="number" min="1" inputmode="numeric" placeholder="Qté"><button class="x" onclick="this.closest('.ln').remove()">×</button></div>`+(o?'':'<div class="row"><input class="lt" placeholder="N° de lot"><input class="ex" type="date" title="Date de péremption"></div>');$('lines').appendChild(d)}
+function saveMove(t){const L=[],tot={};document.querySelectorAll('#lines .ln').forEach(r=>{const pid=r.querySelector('select').value,n=+r.querySelector('input').value;if(n>0){L.push({pid,qty:n,lot:t==='in'?r.querySelector('.lt').value.trim():'',exp:t==='in'?r.querySelector('.ex').value:''});tot[pid]=(tot[pid]||0)+n}});
+ if(!L.length)return say('Ajoutez au moins un produit avec une quantité.');
+ if(t==='out')for(const k in tot){const p=prod(k);if(tot[k]>p.usable)return say(`Stock utilisable insuffisant pour ${p.name} (disponible : ${p.usable}).`)}
+ const g=id=>{const e=$(id);return e?e.value.trim():''};$('sv').disabled=true;
+ act({action:'saveMove',move:{type:t,date:g('dt')||today(),ref:g('ref'),party:g('par'),dest:g('dty'),lines:L}},'Bordereau enregistré : le stock est mis à jour.').then(ok=>{if(ok)tab='stock';render()})}
+function vHist(){if(!S.moves.length)return '<div class="card">Aucun mouvement.</div>';
+ return '<div class="g">'+S.moves.map(m=>`<div class="card"><div class="it" style="border:0;padding:0"><div><span class="tag ${m.type}">${m.type==='in'?'Entrée':'Sortie'}</span> <b>${esc(m.ref||'Sans n°')}</b><div class="mu">${esc(m.date)} · ${esc((m.dest?m.dest+' · ':'')+(m.party||''))}${m.user?' · par '+esc(m.user):''}</div></div>${isM()?`<button class="x" onclick="delMove('${m.id}')">×</button>`:''}</div>`+
+ m.lines.map(l=>{const p=prod(l.pid);return `<div class="it"><span>${esc(p?p.name:'?')}<div class="mu">${l.lot?'Lot '+esc(l.lot):''}${l.exp?' · exp. '+l.exp:''}</div></span><span class="q ${m.type}">${m.type==='in'?'+':'−'}${l.qty}</span></div>`}).join('')+'</div>').join('')+'</div><div class="bar"><button class="btn s" onclick="exHist()">Exporter l’historique (CSV)</button></div>'}
+function exHist(){const r=[['Date','Type','N° bordereau','Destination','Partenaire','Utilisateur','Produit','Lot','Péremption','Quantité']];
+ S.moves.forEach(m=>m.lines.forEach(l=>{const p=prod(l.pid);r.push([m.date,m.type==='in'?'Entrée':'Sortie',m.ref,m.dest,m.party,m.user,p?p.name:'?',l.lot,l.exp,l.qty])}));csv('mouvements',r)}
+function delMove(id){if(confirm('Supprimer ce bordereau ? Le stock sera recalculé.'))act({action:'deleteMove',id})}
+/* --- produits (gestionnaire) --- */
+const vProd=()=>`<div class="card"><b>Nouveau produit</b><div class="g"><div><label>Nom</label><input id="pn"></div><div><label>Unité (boîte, flacon…)</label><input id="pu"></div><div><label>Stock de départ</label><input id="pi" type="number" min="0" value="0"></div><div><label>Stock de sécurité</label><input id="ps" type="number" min="0" value="0"></div><div><label>Péremption du stock de départ</label><input id="pe" type="date"></div></div><button class="btn" onclick="addProd()">Ajouter le produit</button></div>`+
+ S.products.map(p=>`<div class="card"><div class="row"><input id="n${p.id}" value="${esc(p.name)}" class="fl"><button class="x" onclick="delProd('${p.id}')">×</button></div><div class="g"><div><label>Unité</label><input id="u${p.id}" value="${esc(p.unit||'')}"></div><div><label>Stock de départ</label><input id="i${p.id}" type="number" min="0" value="${p.initial}"></div><div><label>Stock de sécurité</label><input id="s${p.id}" type="number" min="0" value="${p.secu}"></div><div><label>Péremption du stock de départ</label><input id="e${p.id}" type="date" value="${p.expInit}"></div></div><button class="btn s" onclick="updProd('${p.id}')">Enregistrer les modifications</button></div>`).join('');
+function addProd(){const n=$('pn').value.trim();if(!n)return say('Entrez le nom du produit.');
+ act({action:'addProduct',product:{name:n,unit:$('pu').value.trim(),initial:+$('pi').value||0,secu:+$('ps').value||0,expInit:$('pe').value}},'Produit ajouté.')}
+const updProd=id=>act({action:'updateProduct',product:{id,name:$('n'+id).value.trim(),unit:$('u'+id).value.trim(),initial:+$('i'+id).value||0,secu:+$('s'+id).value||0,expInit:$('e'+id).value}},'Produit modifié.');
+const delProd=id=>{if(confirm('Supprimer ce produit ?'))act({action:'deleteProduct',id})};
+/* --- utilisateurs (gestionnaire) --- */
+const vUsr=()=>`<div class="card"><b>Nouvel utilisateur</b><div class="g"><div><label>Nom complet</label><input id="un"></div><div><label>Identifiant</label><input id="ul" autocapitalize="none"></div><div><label>Mot de passe (6 caractères min.)</label><input id="up" type="text"></div><div><label>E-mail (facultatif)</label><input id="ue" type="email"></div><div><label>Rôle</label><select id="ur"><option value="utilisateur">Utilisateur (saisie et consultation)</option><option value="gestionnaire">Gestionnaire (tous les droits)</option></select></div></div><button class="btn" onclick="addUsr()">Créer l’utilisateur</button></div>`+
+ '<div class="card">'+S.users.map(u=>`<div class="it"><div>${esc(u.name)} <span class="tag">${u.role}</span><div class="mu">${esc(u.login)}${u.email?' · '+esc(u.email):''}${u.actif?'':' · désactivé'}</div></div><div class="bar"><select style="width:auto" onchange="uu('${u.id}',{role:this.value})"><option value="utilisateur" ${u.role==='utilisateur'?'selected':''}>Utilisateur</option><option value="gestionnaire" ${u.role==='gestionnaire'?'selected':''}>Gestionnaire</option></select><button class="btn s" style="width:auto;margin:0;padding:8px" onclick="pw('${u.id}')">Mot de passe</button><button class="btn s" style="width:auto;margin:0;padding:8px" onclick="uu('${u.id}',{actif:${!u.actif}})">${u.actif?'Désactiver':'Activer'}</button></div></div>`).join('')+'</div>';
+const uu=(id,patch)=>act({action:'updateUser',user:Object.assign({id},patch)},'Utilisateur modifié.');
+const pw=id=>{const p=prompt('Nouveau mot de passe (6 caractères minimum) :');if(p)uu(id,{password:p})};
+const addUsr=()=>act({action:'addUser',user:{name:$('un').value,login:$('ul').value,password:$('up').value,email:$('ue').value,role:$('ur').value}},'Utilisateur créé.');
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+if(T)refresh();else{render();api({action:'status'}).then(r=>{setup=!!(r&&r.setup);render()})}
+</script>
+</body>
+</html>
